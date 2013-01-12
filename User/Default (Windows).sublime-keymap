@@ -1,0 +1,11 @@
+[
+  {
+    "keys": ["alt+e"],
+    "command": "switch_to_file"
+  },
+  {
+   // Auto indent when pasting
+   "keys": ["ctrl+v"],
+   "command": "paste_and_indent"
+  }
+]
