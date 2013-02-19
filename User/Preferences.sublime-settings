@@ -1,27 +1,19 @@
 {
+	"bold_folder_labels": true,
 	"color_scheme": "Packages/Color Scheme - Default/Monokai.tmTheme",
 	"font_size": 11.0,
 	"highlight_line": true,
-	// Hilight modificated tabs
 	"highlight_modified_tabs": true,
-	// Show full path from file being edited
-	"show_full_path": true,
-	// Convert tabs to spaces
-	"translate_tabs_to_spaces": true,
-	// Remove whitespaces when file is saved
-	"trim_trailing_white_space_on_save": true,
 	"ignored_packages":
 	[
 		"Vintage"
 	],
 	"line_numbers": true,
+	"line_padding_bottom": 1,
+	"line_padding_top": 1,
+	"show_full_path": true,
 	"tab_size": 2,
 	"translate_tabs_to_spaces": true,
-	// Enable copy PHP variables
-	"word_separators": "./\\()\"'-:,.;<>~!@#%^&*|+=[]{}`~?",
-	// Increase padding in lines, improve readability
-	"line_padding_bottom": 1,
-  "line_padding_top": 1,
-  // Highlight folder labels on sidebar
-  "bold_folder_labels": true
+	"trim_trailing_white_space_on_save": true,
+	"word_separators": "./\\()\"'-:,.;<>~!@#%^&*|+=[]{}`~?"
 }

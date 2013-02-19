@@ -2,7 +2,11 @@
 	"auto_upgrade_last_run": null,
 	"installed_packages":
 	[
+		"CoffeeScript",
 		"Emmet",
-		"Package Control"
+		"GitGutter",
+		"LESS",
+		"Package Control",
+		"Sass"
 	]
 }
