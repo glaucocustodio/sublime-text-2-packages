@@ -7,4 +7,5 @@
 - <a target="_blank" href="https://sublime.wbond.net/packages/GitGutter">Git​Gutter</a>
 - <a target="_blank" href="https://sublime.wbond.net/packages/LESS">LESS</a>
 - <a target="_blank" href="https://sublime.wbond.net/packages/CoffeeScript">Coffee​Script</a>
+- <a target="_blank" href="https://packagecontrol.io/packages/Sass">Sass</a>
 - <a target="_blank" href="https://sublime.wbond.net/packages/SideBarEnhancements">Side​Bar​Enhancements</a>
