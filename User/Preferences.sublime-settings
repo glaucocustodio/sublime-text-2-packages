@@ -17,5 +17,6 @@
 	"sidebar_size_14": true,
 	"tab_size": 2,
 	"translate_tabs_to_spaces": true,
-	"word_separators": "./\\()\"'-:,.;<>~!@#%^&*|+=[]{}`~?"
+	"word_separators": "./\\()\"'-:,.;<>~!@#%^&*|+=[]{}`~?",
+	"file_exclude_patterns": [".tags", ".tags_sorted_by_file", ".gemtags"]
 }
