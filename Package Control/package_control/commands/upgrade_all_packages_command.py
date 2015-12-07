@@ -1,5 +1,6 @@
 import time
 import threading
+import functools
 
 import sublime
 import sublime_plugin
@@ -10,6 +11,7 @@ from ..package_renamer import PackageRenamer
 
 
 class UpgradeAllPackagesCommand(sublime_plugin.WindowCommand):
+
     """
     A command to automatically upgrade all installed packages that are
     upgradable.
@@ -25,6 +27,7 @@ class UpgradeAllPackagesCommand(sublime_plugin.WindowCommand):
 
 
 class UpgradeAllPackagesThread(threading.Thread, PackageInstaller):
+
     """
     A thread to run the action of retrieving upgradable packages in.
     """
@@ -44,17 +47,13 @@ class UpgradeAllPackagesThread(threading.Thread, PackageInstaller):
 
         def do_upgrades():
             # Pause so packages can be disabled
-            time.sleep(0.5)
-
-            # We use a function to generate the on-complete lambda because if
-            # we don't, the lambda will bind to info at the current scope, and
-            # thus use the last value of info from the loop
-            def make_on_complete(name):
-                return lambda: self.reenable_package(name)
+            time.sleep(0.7)
 
             for info in package_list:
                 if info[0] in disabled_packages:
-                    on_complete = make_on_complete(info[0])
+                    # We use a functools.partial to generate the on-complete callback in
+                    # order to bind the current value of the parameters, unlike lambdas.
+                    on_complete = functools.partial(self.reenable_package, info[0])
                 else:
                     on_complete = None
                 thread = PackageInstallerThread(self.manager, info[0],
@@ -63,6 +62,7 @@ class UpgradeAllPackagesThread(threading.Thread, PackageInstaller):
                 ThreadProgress(thread, 'Upgrading package %s' % info[0],
                     'Package %s successfully %s' % (info[0],
                     self.completion_type))
+                thread.join()
 
         # Disabling a package means changing settings, which can only be done
         # in the main thread. We then create a new background thread so that
@@ -71,7 +71,7 @@ class UpgradeAllPackagesThread(threading.Thread, PackageInstaller):
             package_names = []
             for info in package_list:
                 package_names.append(info[0])
-            disabled_packages.extend(self.disable_packages(package_names))
+            disabled_packages.extend(self.disable_packages(package_names, 'upgrade'))
             threading.Thread(target=do_upgrades).start()
 
         sublime.set_timeout(disable_packages, 1)

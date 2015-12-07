@@ -10,7 +10,6 @@ except (ImportError):
     from urllib import urlencode
 
 from .json_api_client import JSONApiClient
-from ..downloaders.downloader_exception import DownloaderException
 
 
 # Used to map file extensions to formats
@@ -49,7 +48,7 @@ class ReadmeClient(JSONApiClient):
 
         # Try to grab the contents of a GitHub-based readme by grabbing the cached
         # content of the readme API call
-        github_match = re.match('https://raw.github.com/([^/]+/[^/]+)/([^/]+)/readme(\.(md|mkd|mdown|markdown|textile|creole|rst|txt))?$', url, re.I)
+        github_match = re.match('https://raw\.github(?:usercontent)?\.com/([^/]+/[^/]+)/([^/]+)/readme(\.(md|mkd|mdown|markdown|textile|creole|rst|txt))?$', url, re.I)
         if github_match:
             user_repo = github_match.group(1)
             branch = github_match.group(2)
@@ -59,7 +58,7 @@ class ReadmeClient(JSONApiClient):
             try:
                 info = self.fetch_json(readme_json_url, prefer_cached=True)
                 contents = base64.b64decode(info['content'])
-            except (ValueError) as e:
+            except (ValueError):
                 pass
 
         if not contents:
@@ -73,7 +72,7 @@ class ReadmeClient(JSONApiClient):
 
         try:
             contents = contents.decode('utf-8')
-        except (UnicodeDecodeError) as e:
+        except (UnicodeDecodeError):
             contents = contents.decode('cp1252', errors='replace')
 
         return {

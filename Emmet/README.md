@@ -2,13 +2,14 @@
 
 [![Get Support](http://codersclan.net/graphics/getSupport_github4.png)](http://codersclan.net/support/step1.php?repo_id=4)
 
-Official [Emmet](http://emmet.io) plugin (previously called _Zen Coding_) for Sublime Text.
+Official [Emmet](http://emmet.io) plugin for Sublime Text.
 
 * [How to install](#how-to-install)
 * [Available actions](#available-actions)
 * [Extensions support](#extensions-support)
 * [Overriding keyboard shortcuts](#overriding-keyboard-shortcuts)
-* [Tab key handler](#tab-key-handler)
+* [How to expand abbreviatoins with Tab key in other syntaxes](#how-to-expand-abbreviations-with-tab-in-other-syntaxes)
+* [Notes about Tab key handler](#tab-key-handler)
 
 ## How to install
 
@@ -27,16 +28,6 @@ Manually:
 --------------
 
 **WARNING**: When plugin is installed, it will automatically download required PyV8 binary so you have to wait a bit (see _Loading PyV8 binary_ message on status bar). If you experience issues with automatic PyV8 loader, try to [install it manually](https://github.com/emmetio/pyv8-binaries).
-
-## New features of Emmet (compared with old Zen Coding)
-
-* [Dynamic CSS abbreviations](http://docs.emmet.io/css-abbreviations/), automatic [vendor prefixes](http://docs.emmet.io/css-abbreviations/vendor-prefixes/) and [gradient generator](http://docs.emmet.io/css-abbreviations/gradients/).
-* [“Lorem Ipsum” generator](http://docs.emmet.io/abbreviations/lorem-ipsum/)
-* [Implicit tag names](http://docs.emmet.io/abbreviations/implicit-names/)
-* New [Yandex’s BEM filter](http://docs.emmet.io/filters/bem/)
-* [Extensions support](http://docs.emmet.io/customization/)
-* New [^ operator](http://docs.emmet.io/abbreviations/syntax/)
-* Various fixes and improvements
 
 ## Available actions ##
 
@@ -92,6 +83,63 @@ To disable all default shortcuts, set value to `all`:
 
 Not that if you disabled any action like so and you’re create your own keyboard shortcut, you **should not** use `emmet_action_enabled.ACTION_NAME` context since this is the key that disables action.
 
+## How to expand abbreviations with Tab in other syntaxes
+
+Emmet expands abbreviations in limited syntaxes only: HTML, CSS, LESS, SCSS and Stylus. The reason to restrict Tab handler to a limited syntax list is because it breaks native Sublime Text snippets. 
+
+If you want to abbreviation with Tab in other syntaxes (for example, JSX, HAML etc.) you have to tweak your [keyboard shorcuts settings](http://sublime-text-unofficial-documentation.readthedocs.org/en/sublime-text-2/reference/key_bindings.html): add `expand_abbreviation_by_tab` command for `tab` key for required syntax *scope selectors*. To get current syntax scope selector, press <kbd>⇧⌃P</kbd> (OSX) or <kbd>Ctrl+Alt+Shift+P</kbd>, it will be displayed in editor status bar.
+
+Go to `Preferences` > `Key Bindings — User` and insert the following JSON snippet with properly configured scope selector instead of `SCOPE_SELECTOR` token:
+
+```js
+{
+  "keys": ["tab"], 
+  "command": "expand_abbreviation_by_tab", 
+
+  // put comma-separated syntax selectors for which 
+  // you want to expandEmmet abbreviations into "operand" key 
+  // instead of SCOPE_SELECTOR.
+  // Examples: source.js, text.html - source
+  "context": [
+    {
+      "operand": "SCOPE_SELECTOR", 
+      "operator": "equal", 
+      "match_all": true, 
+      "key": "selector"
+    }, 
+
+    // run only if there's no selected text
+    {
+      "match_all": true, 
+      "key": "selection_empty"
+    },
+
+    // don't work if there are active tabstops
+    {
+      "operator": "equal", 
+      "operand": false, 
+      "match_all": true, 
+      "key": "has_next_field"
+    }, 
+
+    // don't work if completion popup is visible and you
+    // want to insert completion with Tab. If you want to
+    // expand Emmet with Tab even if popup is visible -- 
+    // remove this section
+    {
+      "operand": false, 
+      "operator": "equal", 
+      "match_all": true, 
+      "key": "auto_complete_visible"
+    }, 
+    {
+      "match_all": true, 
+      "key": "is_abbreviation"
+    }
+  ]
+}
+```
+
 ### Tab key handler ###
 
 Emmet plugin allows you to expand abbreviations with <kbd>Tab</kbd> key, just like regular snippets. On the other hand, due to dynamic nature and extensive syntax, sometimes you may get unexpected results. This section describes how Tab handler works and how you can fine-tune it.
@@ -114,3 +162,13 @@ To fine-tune Tab key handler, you can use the following settings in user’s `Em
 * `known_html_tags` — a space-separated list of all known HTML tags used for lookup as described above.
 
 If you’re unhappy with Emmet tab handler behavior, you can disable it: just add `"disable_tab_abbreviations": true` into user’s `Preferences.sublime-settings` file.
+
+## Disable automatic vendor prefixes insertion
+If your workflow already includes an automated task for CSS vendor prefixing (such as [Autoprefixer](https://github.com/postcss/autoprefixer)), you can disable Emmet's automatic vendor prefixes insertion adding this option to your user’s `Emmet.sublime-settings` file:
+```json
+{
+  "preferences": {
+    "css.autoInsertVendorPrefixes": false
+  }
+}
+```

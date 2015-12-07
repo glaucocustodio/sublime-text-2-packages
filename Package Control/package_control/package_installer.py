@@ -1,24 +1,29 @@
-import os
 import re
 import threading
+import time
 
 import sublime
 
-from .preferences_filename import preferences_filename
 from .thread_progress import ThreadProgress
 from .package_manager import PackageManager
-from .upgraders.git_upgrader import GitUpgrader
-from .upgraders.hg_upgrader import HgUpgrader
+from .package_disabler import PackageDisabler
 from .versions import version_comparable
 
 
-class PackageInstaller():
+class PackageInstaller(PackageDisabler):
+
     """
     Provides helper functionality related to installing packages
     """
 
     def __init__(self):
         self.manager = PackageManager()
+        # Track what the color scheme was before upgrade so we can restore it
+        self.old_color_scheme_package = None
+        self.old_color_scheme = None
+        # Track what the theme was before upgrade so we can restore it
+        self.old_theme_package = None
+        self.old_theme = None
 
     def make_package_list(self, ignore_actions=[], override_action=None,
             ignore_packages=[]):
@@ -60,7 +65,7 @@ class PackageInstaller():
                 continue
             package_entry = [package]
             info = packages[package]
-            download = info['download']
+            release = info['releases'][0]
 
             if package in installed_packages:
                 installed = True
@@ -74,10 +79,9 @@ class PackageInstaller():
 
             installed_version_name = 'v' + installed_version if \
                 installed and installed_version else 'unknown version'
-            new_version = 'v' + download['version']
+            new_version = 'v' + release['version']
 
             vcs = None
-            package_dir = self.manager.get_package_dir(package)
             settings = self.manager.settings
 
             if override_action:
@@ -85,22 +89,15 @@ class PackageInstaller():
                 extra = ''
 
             else:
-                if os.path.exists(os.path.join(package_dir, '.git')):
-                    if settings.get('ignore_vcs_packages'):
+                if self.manager.is_vcs_package(package):
+                    to_ignore = settings.get('ignore_vcs_packages')
+                    if to_ignore is True:
                         continue
-                    vcs = 'git'
-                    incoming = GitUpgrader(settings.get('git_binary'),
-                        settings.get('git_update_command'), package_dir,
-                        settings.get('cache_length'), settings.get('debug')
-                        ).incoming()
-                elif os.path.exists(os.path.join(package_dir, '.hg')):
-                    if settings.get('ignore_vcs_packages'):
+                    if isinstance(to_ignore, list) and package in to_ignore:
                         continue
-                    vcs = 'hg'
-                    incoming = HgUpgrader(settings.get('hg_binary'),
-                        settings.get('hg_update_command'), package_dir,
-                        settings.get('cache_length'), settings.get('debug')
-                        ).incoming()
+                    upgrader = self.manager.instantiate_upgrader(package)
+                    vcs = upgrader.cli_name
+                    incoming = upgrader.incoming()
 
                 if installed:
                     if vcs:
@@ -116,12 +113,12 @@ class PackageInstaller():
                             new_version)
                     else:
                         installed_version = version_comparable(installed_version)
-                        download_version = version_comparable(download['version'])
-                        if download_version > installed_version:
+                        new_version_cmp = version_comparable(release['version'])
+                        if new_version_cmp > installed_version:
                             action = 'upgrade'
                             extra = ' to %s from %s' % (new_version,
                                 installed_version_name)
-                        elif download_version < installed_version:
+                        elif new_version_cmp < installed_version:
                             action = 'downgrade'
                             extra = ' to %s from %s' % (new_version,
                                 installed_version_name)
@@ -145,52 +142,6 @@ class PackageInstaller():
             package_list.append(package_entry)
         return package_list
 
-    def disable_packages(self, packages):
-        """
-        Disables one or more packages before installing or upgrading to prevent
-        errors where Sublime Text tries to read files that no longer exist, or
-        read a half-written file.
-
-        :param packages: The string package name, or an array of strings
-        """
-
-        if not isinstance(packages, list):
-            packages = [packages]
-
-        # Don't disable Package Control so it does not get stuck disabled
-        if 'Package Control' in packages:
-            packages.remove('Package Control')
-
-        disabled = []
-
-        settings = sublime.load_settings(preferences_filename())
-        ignored = settings.get('ignored_packages')
-        if not ignored:
-            ignored = []
-        for package in packages:
-            if not package in ignored:
-                ignored.append(package)
-                disabled.append(package)
-        settings.set('ignored_packages', ignored)
-        sublime.save_settings(preferences_filename())
-        return disabled
-
-    def reenable_package(self, package):
-        """
-        Re-enables a package after it has been installed or upgraded
-
-        :param package: The string package name
-        """
-
-        settings = sublime.load_settings(preferences_filename())
-        ignored = settings.get('ignored_packages')
-        if not ignored:
-            return
-        if package in ignored:
-            settings.set('ignored_packages',
-                list(set(ignored) - set([package])))
-            sublime.save_settings(preferences_filename())
-
     def on_done(self, picked):
         """
         Quick panel user selection handler - disables a package, installs or
@@ -205,8 +156,9 @@ class PackageInstaller():
             return
         name = self.package_list[picked][0]
 
-        if name in self.disable_packages(name):
-            on_complete = lambda: self.reenable_package(name)
+        if name in self.disable_packages(name, 'install'):
+            def on_complete():
+                self.reenable_package(name, 'install')
         else:
             on_complete = None
 
@@ -217,12 +169,13 @@ class PackageInstaller():
 
 
 class PackageInstallerThread(threading.Thread):
+
     """
     A thread to run package install/upgrade operations in so that the main
     Sublime Text thread does not get blocked and freeze the UI
     """
 
-    def __init__(self, manager, package, on_complete):
+    def __init__(self, manager, package, on_complete, pause=False):
         """
         :param manager:
             An instance of :class:`PackageManager`
@@ -232,16 +185,27 @@ class PackageInstallerThread(threading.Thread):
 
         :param on_complete:
             A callback to run after installing/upgrading the package
+
+        :param pause:
+            If we should pause before upgrading to allow a package to be
+            fully disabled.
         """
 
         self.package = package
         self.manager = manager
         self.on_complete = on_complete
+        self.pause = pause
         threading.Thread.__init__(self)
 
     def run(self):
+        if self.pause:
+            time.sleep(0.7)
         try:
             self.result = self.manager.install_package(self.package)
+        except (Exception):
+            self.result = False
+            raise
         finally:
-            if self.on_complete:
-                sublime.set_timeout(self.on_complete, 1)
+            # Do not reenable if deferred until next restart
+            if self.on_complete and self.result is not None:
+                sublime.set_timeout(self.on_complete, 700)

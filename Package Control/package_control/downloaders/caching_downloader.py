@@ -7,6 +7,7 @@ from ..console_write import console_write
 
 
 class CachingDownloader(object):
+
     """
     A base downloader that will use a caching backend to cache HTTP requests
     and make conditional requests.
@@ -78,15 +79,24 @@ class CachingDownloader(object):
         """
 
         debug = self.settings.get('debug', False)
+        cache = self.settings.get('cache')
 
-        if not self.settings.get('cache'):
+        if not cache:
             if debug:
-                console_write(u"Skipping cache since there is no cache object", True)
+                console_write(
+                    u'''
+                    Skipping cache since there is no cache object
+                    '''
+                )
             return content
 
         if method.lower() != 'get':
             if debug:
-                console_write(u"Skipping cache since the HTTP method != GET", True)
+                console_write(
+                    u'''
+                    Skipping cache since the HTTP method != GET
+                    '''
+                )
             return content
 
         status = int(status)
@@ -94,16 +104,25 @@ class CachingDownloader(object):
         # Don't do anything unless it was successful or not modified
         if status not in [200, 304]:
             if debug:
-                console_write(u"Skipping cache since the HTTP status code not one of: 200, 304", True)
+                console_write(
+                    u'''
+                    Skipping cache since the HTTP status code not one of: 200, 304
+                    '''
+                )
             return content
 
         key = self.generate_key(url)
 
         if status == 304:
-            cached_content = self.settings['cache'].get(key)
+            cached_content = cache.get(key)
             if cached_content:
                 if debug:
-                    console_write(u"Using cached content for %s" % url, True)
+                    console_write(
+                        u'''
+                        Using cached content for %s from %s
+                        ''',
+                        (url, cache.path(key))
+                    )
                 return cached_content
 
             # If we got a 304, but did not have the cached content
@@ -123,7 +142,11 @@ class CachingDownloader(object):
         # Don't ever cache zip/binary files for the sake of hard drive space
         if headers.get('content-type') in ['application/zip', 'application/octet-stream']:
             if debug:
-                console_write(u"Skipping cache since the response is a zip file", True)
+                console_write(
+                    u'''
+                    Skipping cache since the response is a zip file
+                    '''
+                )
             return content
 
         etag = headers.get('etag')
@@ -137,10 +160,15 @@ class CachingDownloader(object):
 
         info_key = self.generate_key(url, '.info')
         if debug:
-            console_write(u"Caching %s in %s" % (url, key), True)
+            console_write(
+                u'''
+                Caching %s in %s
+                ''',
+                (url, cache.path(key))
+            )
 
-        self.settings['cache'].set(info_key, struct_json.encode('utf-8'))
-        self.settings['cache'].set(key, content)
+        cache.set(info_key, struct_json.encode('utf-8'))
+        cache.set(key, content)
 
         return content
 
@@ -176,10 +204,17 @@ class CachingDownloader(object):
         """
 
         key = self.generate_key(url)
-        if not self.settings['cache'].has(key):
+        cache = self.settings['cache']
+
+        if not cache.has(key):
             return False
 
         if self.settings.get('debug'):
-            console_write(u"Using cached content for %s" % url, True)
+            console_write(
+                u'''
+                Using cached content for %s from %s
+                ''',
+                (url, cache.path(key))
+            )
 
-        return self.settings['cache'].get(key)
+        return cache.get(key)

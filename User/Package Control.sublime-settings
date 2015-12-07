@@ -1,13 +1,20 @@
 {
 	"auto_upgrade_last_run": null,
+	"bootstrapped": true,
+	"in_process_packages":
+	[
+	],
 	"installed_packages":
 	[
 		"Alignment",
 		"BracketHighlighter",
 		"CoffeeScript",
 		"Color Highlighter",
+		"CTags",
+		"Elixir",
 		"Emmet",
 		"GitGutter",
+		"JavaScriptNext - ES6 Syntax",
 		"LESS",
 		"Package Control",
 		"Sass",

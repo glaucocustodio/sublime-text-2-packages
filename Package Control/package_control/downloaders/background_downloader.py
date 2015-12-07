@@ -2,6 +2,7 @@ import threading
 
 
 class BackgroundDownloader(threading.Thread):
+
     """
     Downloads information from one or more URLs in the background.
     Normal usage is to use one BackgroundDownloader per domain name.
@@ -49,7 +50,7 @@ class BackgroundDownloader(threading.Thread):
             The provider object for the URL
         """
 
-        return self.used_providers[url]
+        return self.used_providers.get(url)
 
     def run(self):
         for url in self.urls:

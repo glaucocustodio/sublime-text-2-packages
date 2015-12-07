@@ -8,8 +8,11 @@ A sublime text 2/3 plugin to show an icon in the gutter area indicating whether 
 
 ### Installation
 
-You can install via [Sublime Package Control](http://wbond.net/sublime_packages/package_control)
-Or you can clone this repo into your *Sublime Text 2/Packages*
+You can install via [Sublime Package Control](http://wbond.net/sublime_packages/package_control):
+  * [GitGutter](https://sublime.wbond.net/packages/GitGutter) - Release based
+  * [GitGutter-Edge](https://sublime.wbond.net/packages/GitGutter-Edge) - Stick with master branch (at your own peril)
+
+Or you can clone this repo into your *Sublime Text x/Packages*:
 
 *OSX*
 ```shell
@@ -32,13 +35,31 @@ cd "%APPDATA%\Sublime Text 2\Packages"
 git clone git://github.com/jisaacks/GitGutter.git
 ```
 
+On OS X you might need to install the package [SublimeFixMacPath](https://github.com/int3h/SublimeFixMacPath).
+
+### Comparing against different commits/branches/tags
+
+By default, Git Gutter compares your working copy against the HEAD. You can change this behaviour through the ST command palette. The following options are available:
+
+- Compare against HEAD
+- Compare against particular branch
+- Compare against particular tag
+- Compare against specific commit
+
+To change the compare option:
+
+- Open the command palette (`Ctrl-Shift-P` for Windows/Linux, `Cmd-Shift-P` for Mac)
+- Start typing `GitGutter`
+- You'll see the 4 options listed above, select one with the keyboard.
+- Choose the branch/tag/commit to compare against.
+
 ### Settings
 Settings are accessed via the <kbd>Preferences</kbd> > <kbd>Package Settings</kbd> > <kbd>GitGutter</kbd> menu.
 
 Default settings should not be modified, as they are overwritten when GitGutter updates. Instead, you should copy the relevant settings into GitGutter's user settings file.
 
 #### Non Blocking Mode
-By default, GitGutter runs in the same thread which can block if it starts to perform slowly. Usually this isn't a problem but depending on the size of your file or repo it can be. If you set `non_blocking` to `true` then GitGutter will run in a seperate thread and will not block. This does cause a slight delay between when you make a modification and when the icons update in the gutter. This is a ***Sublime Text 3 only feature***, ST2 users can turn off live mode if performance is an issue.
+When set to `true` then GitGutter will run in a seperate thread and will not block. This does cause a slight delay between when you make a modification and when the icons update in the gutter.
 
 #### Debounce Delay
 When using non_blocking mode, delay update of gutter icons by the following amount (in milliseconds). Useful for performance issues. Default 1000 (1 second).
@@ -48,7 +69,7 @@ By default, GitGutter detects changes every time the file is modified. If you ex
 
 
 #### Untracked Files
-GitGutter shows icons for new files and ignored files. These icons will be on everyline. You can toggle the setting `show_markers_on_untracked_file` to turn this feature off. Defaults to true (shows icons). You may need to add scopes to your color scheme (`markup.ignored.git_gutter` and `markup.untracked.git_gutter`) to color the icons.
+GitGutter shows icons for new files and ignored files. These icons will be on every line. You can toggle the setting `show_markers_on_untracked_file` to turn this feature off. Defaults to true (shows icons). You may need to add scopes to your color scheme (`markup.ignored.git_gutter` and `markup.untracked.git_gutter`) to color the icons.
 
 #### Git path
 If git is not in your PATH, you may need to set the `git_binary` setting to the location of the git binary, e.g. in a portable environment;
@@ -83,6 +104,7 @@ The colors come from your *color scheme* **.tmTheme** file.
 
 Color schemes that already have support for GitGutter include:
 
+* [Dark Room](https://github.com/NeilCresswell/themes)
 * [Deep Blue See](https://github.com/jisaacks/DeepBlueSee)
 * [Flatland](https://github.com/thinkpixellab/flatland)
 * [Monokai Extended](https://github.com/jisaacks/sublime-monokai-extended)
@@ -98,6 +120,10 @@ Color schemes that already have support for GitGutter include:
 * [Neon](https://github.com/farzher/Sublime-Text-Themes)
 * [Afterglow](https://github.com/YabataDesign/afterglow-theme)
 * [Desert Night](https://github.com/fgb/desert_night)
+* [Cobalt2](https://github.com/wesbos/cobalt2)
+* [Fox](https://github.com/karelvuong/fox)
+* [Hitoshi](https://github.com/runxel/hitoshi)
+* [Grandson of Obsidian](https://github.com/jfromaniello/Grandson-of-Obsidian)
 * _Contact me if you want your color scheme listed here. Or do a pull request._
 
 If your color scheme file does not define the appropriate colors (or you want to edit them) add an entry that looks like this:
@@ -159,29 +185,16 @@ If your color scheme file does not define the appropriate colors (or you want to
   </dict>
 </dict>
 ```
+
 ### Jumping Between Changes
+
 There are commands to jump between modifications. The default keybindings for these commands are:
 
-**OSX**
-
-prev: <kbd>command</kbd> + <kbd>shift</kbd> + <kbd>option</kbd> + <kbd>k</kbd>
-next: <kbd>command</kbd> + <kbd>shift</kbd> + <kbd>option</kbd> + <kbd>j</kbd>
-
-**Windows**
-
-prev: <kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>alt</kbd> + <kbd>k</kbd>
-next: <kbd>ctrl</kbd> + <kbd>shift</kbd> + <kbd>alt</kbd> + <kbd>j</kbd>
-
-<br>
-
-------------
+| OS X | Windows / Linux | Description |
+|------|-----------------|-------------|
+| <kbd>Command</kbd>+<kbd>Shift</kbd>+<kbd>Option</kbd>+<kbd>k</kbd> | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Alt</kbd>+<kbd>k</kbd> | Previous |
+| <kbd>Command</kbd>+<kbd>Shift</kbd>+<kbd>Option</kbd>+<kbd>j</kbd> | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Alt</kbd>+<kbd>j</kbd> | Next |
 
 ### Alternatives
 
-*Don't use Sublime?*
- - [Vim GitGutter](https://github.com/airblade/vim-gitgutter)
- - [Emacs GitGutter](https://github.com/syohex/emacs-git-gutter)
-
-*Don't use Git?*
- - [VcsGutter](https://github.com/bradsokol/VcsGutter)
- - [Modific](https://github.com/gornostal/Modific) *Not a port/fork of __GitGutter__ but similar*
+Check out the [collection of GitGutter(ish) packages for various editors](https://github.com/gitgutter)

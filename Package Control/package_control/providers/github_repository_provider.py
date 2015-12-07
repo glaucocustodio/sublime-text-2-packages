@@ -7,6 +7,7 @@ from .provider_exception import ProviderException
 
 
 class GitHubRepositoryProvider():
+
     """
     Allows using a public GitHub repository as the source for a single package.
     For legacy purposes, this can also be treated as the source for a Package
@@ -30,7 +31,6 @@ class GitHubRepositoryProvider():
           `proxy_username`,
           `proxy_password`,
           `query_string_params`
-          `install_prereleases`
     """
 
     def __init__(self, repo, settings):
@@ -47,7 +47,7 @@ class GitHubRepositoryProvider():
         master = re.search('^https?://github.com/[^/]+/[^/]+/?$', repo)
         branch = re.search('^https?://github.com/[^/]+/[^/]+/tree/[^/]+/?$',
             repo)
-        return master != None or branch != None
+        return master is not None or branch is not None
 
     def prefetch(self):
         """
@@ -77,6 +77,18 @@ class GitHubRepositoryProvider():
 
         return {}.items()
 
+    def get_broken_dependencies(self):
+        """
+        For API-compatibility with RepositoryProvider
+        """
+
+        return {}.items()
+
+    def get_dependencies(self, ):
+        "For API-compatibility with RepositoryProvider"
+
+        return {}.items()
+
     def get_packages(self, invalid_sources=None):
         """
         Uses the GitHub API to construct necessary info for a package
@@ -98,11 +110,15 @@ class GitHubRepositoryProvider():
                     'author': author,
                     'homepage': homepage,
                     'last_modified': last modified date,
-                    'download': {
-                        'url': url,
-                        'date': date,
-                        'version': version
-                    },
+                    'releases': [
+                        {
+                            'sublime_text': '*',
+                            'platforms': ['*'],
+                            'url': url,
+                            'date': date,
+                            'version': version
+                        }, ...
+                    ],
                     'previous_names': [],
                     'labels': [],
                     'sources': [the repo URL],
@@ -122,12 +138,17 @@ class GitHubRepositoryProvider():
 
         client = GitHubClient(self.settings)
 
-        if invalid_sources != None and self.repo in invalid_sources:
+        if invalid_sources is not None and self.repo in invalid_sources:
             raise StopIteration()
 
         try:
             repo_info = client.repo_info(self.repo)
-            download = client.download_info(self.repo)
+
+            releases = []
+            for download in client.download_info(self.repo):
+                download['sublime_text'] = '*'
+                download['platforms'] = ['*']
+                releases.append(download)
 
             name = repo_info['name']
             details = {
@@ -135,8 +156,8 @@ class GitHubRepositoryProvider():
                 'description': repo_info['description'],
                 'homepage': repo_info['homepage'],
                 'author': repo_info['author'],
-                'last_modified': download.get('date'),
-                'download': download,
+                'last_modified': releases[0].get('date'),
+                'releases': releases,
                 'previous_names': [],
                 'labels': [],
                 'sources': [self.repo],
@@ -153,17 +174,17 @@ class GitHubRepositoryProvider():
             self.cache['get_packages'] = {}
             raise StopIteration()
 
+    def get_sources(self):
+        """
+        Return a list of current URLs that are directly referenced by the repo
+
+        :return:
+            A list of URLs
+        """
+
+        return [self.repo]
+
     def get_renamed_packages(self):
         """For API-compatibility with RepositoryProvider"""
 
         return {}
-
-    def get_unavailable_packages(self):
-        """
-        Method for compatibility with RepositoryProvider class. These providers
-        are based on API calls, and thus do not support different platform
-        downloads, making it impossible for there to be unavailable packages.
-
-        :return: An empty list
-        """
-        return []

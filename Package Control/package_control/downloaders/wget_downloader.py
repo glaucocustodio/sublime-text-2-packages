@@ -2,21 +2,28 @@ import tempfile
 import re
 import os
 
+try:
+    # Python 2
+    str_cls = unicode
+except (NameError):
+    # Python 3
+    str_cls = str
+
 from ..console_write import console_write
 from ..unicode import unicode_from_os
 from ..open_compat import open_compat, read_compat
 from .cli_downloader import CliDownloader
 from .non_http_error import NonHttpError
 from .non_clean_exit_error import NonCleanExitError
-from .rate_limit_exception import RateLimitException
 from .downloader_exception import DownloaderException
-from .cert_provider import CertProvider
+from ..ca_certs import get_ca_bundle_path
 from .decoding_downloader import DecodingDownloader
 from .limiting_downloader import LimitingDownloader
 from .caching_downloader import CachingDownloader
 
 
-class WgetDownloader(CliDownloader, CertProvider, DecodingDownloader, LimitingDownloader, CachingDownloader):
+class WgetDownloader(CliDownloader, DecodingDownloader, LimitingDownloader, CachingDownloader):
+
     """
     A downloader that uses the command line program wget
 
@@ -62,7 +69,6 @@ class WgetDownloader(CliDownloader, CertProvider, DecodingDownloader, LimitingDo
             If a cached version should be returned instead of trying a new request
 
         :raises:
-            NoCaCertException: when no CA certs can be found for the url
             RateLimitException: when a rate limit is hit
             DownloaderException: when any other download error occurs
 
@@ -76,15 +82,19 @@ class WgetDownloader(CliDownloader, CertProvider, DecodingDownloader, LimitingDo
                 return cached
 
         self.tmp_file = tempfile.NamedTemporaryFile().name
-        command = [self.wget, '--connect-timeout=' + str(int(timeout)), '-o',
-            self.tmp_file, '-O', '-', '-U', self.settings.get('user_agent')]
+        command = [self.wget, '--connect-timeout=' + str_cls(int(timeout)), '-o',
+            self.tmp_file, '-O', '-', '--secure-protocol=TLSv1']
+
+        user_agent = self.settings.get('user_agent')
+        if user_agent:
+            command.extend(['-U', user_agent])
 
         request_headers = {
             # Don't be alarmed if the response from the server does not select
             # one of these since the server runs a relatively new version of
             # OpenSSL which supports compression on the SSL layer, and Apache
             # will use that instead of HTTP-level encoding.
-            'Accept-Encoding': 'gzip,deflate'
+            'Accept-Encoding': self.supported_encodings()
         }
         request_headers = self.add_conditional_headers(url, request_headers)
 
@@ -92,9 +102,8 @@ class WgetDownloader(CliDownloader, CertProvider, DecodingDownloader, LimitingDo
             command.extend(['--header', "%s: %s" % (name, value)])
 
         secure_url_match = re.match('^https://([^/]+)', url)
-        if secure_url_match != None:
-            secure_domain = secure_url_match.group(1)
-            bundle_path = self.check_certs(secure_domain, timeout)
+        if secure_url_match is not None:
+            bundle_path = get_ca_bundle_path(self.settings)
             command.append(u'--ca-certificate=' + bundle_path)
 
         if self.debug:
@@ -113,11 +122,16 @@ class WgetDownloader(CliDownloader, CertProvider, DecodingDownloader, LimitingDo
             command.append(u"--proxy-password=%s" % proxy_password)
 
         if self.debug:
-            console_write(u"Wget Debug Proxy", True)
-            console_write(u"  http_proxy: %s" % http_proxy)
-            console_write(u"  https_proxy: %s" % https_proxy)
-            console_write(u"  proxy_username: %s" % proxy_username)
-            console_write(u"  proxy_password: %s" % proxy_password)
+            console_write(
+                u'''
+                Wget Debug Proxy
+                  http_proxy: %s
+                  https_proxy: %s
+                  proxy_username: %s
+                  proxy_password: %s
+                ''',
+                (http_proxy, https_proxy, proxy_username, proxy_password)
+            )
 
         command.append(url)
 
@@ -132,10 +146,9 @@ class WgetDownloader(CliDownloader, CertProvider, DecodingDownloader, LimitingDo
             try:
                 result = self.execute(command)
 
-                general, headers = self.parse_output()
+                general, headers = self.parse_output(True)
                 encoding = headers.get('content-encoding')
-                if encoding:
-                    result = self.decode_response(encoding, result)
+                result = self.decode_response(encoding, result)
 
                 result = self.cache_result('get', url, general['status'],
                     headers, result)
@@ -145,7 +158,7 @@ class WgetDownloader(CliDownloader, CertProvider, DecodingDownloader, LimitingDo
             except (NonCleanExitError) as e:
 
                 try:
-                    general, headers = self.parse_output()
+                    general, headers = self.parse_output(False)
                     self.handle_rate_limit(headers, url)
 
                     if general['status'] == 304:
@@ -154,11 +167,13 @@ class WgetDownloader(CliDownloader, CertProvider, DecodingDownloader, LimitingDo
 
                     if general['status'] == 503 and tries != 0:
                         # GitHub and BitBucket seem to rate limit via 503
-                        error_string = u'Downloading %s was rate limited' % url
-                        if tries:
-                            error_string += ', trying again'
-                            if self.debug:
-                                console_write(error_string, True)
+                        if tries and self.debug:
+                            console_write(
+                                u'''
+                                Downloading %s was rate limited, trying again
+                                ''',
+                                url
+                            )
                         continue
 
                     download_error = 'HTTP error %s' % general['status']
@@ -169,11 +184,13 @@ class WgetDownloader(CliDownloader, CertProvider, DecodingDownloader, LimitingDo
 
                     # GitHub and BitBucket seem to time out a lot
                     if download_error.find('timed out') != -1:
-                        error_string = u'Downloading %s timed out' % url
-                        if tries:
-                            error_string += ', trying again'
-                            if self.debug:
-                                console_write(error_string, True)
+                        if tries and self.debug:
+                            console_write(
+                                u'''
+                                Downloading %s timed out, trying again
+                                ''',
+                                url
+                            )
                         continue
 
                 error_string = u'%s %s downloading %s.' % (error_message, download_error, url)
@@ -192,9 +209,15 @@ class WgetDownloader(CliDownloader, CertProvider, DecodingDownloader, LimitingDo
 
         return True
 
-    def parse_output(self):
+    def parse_output(self, clean_run):
         """
         Parses the wget output file, prints debug information and returns headers
+
+        :param clean_run:
+            If wget executed with a successful exit code
+
+        :raises:
+            NonHttpError - when clean_run is false and an error is detected
 
         :return:
             A tuple of (general, headers) where general is a dict with the keys:
@@ -243,12 +266,12 @@ class WgetDownloader(CliDownloader, CertProvider, DecodingDownloader, LimitingDo
                     continue
 
                 if section != last_section:
-                    console_write(u"Wget HTTP Debug %s" % section, True)
+                    console_write(u'Wget HTTP Debug %s', section)
 
                 if section == 'Read':
                     header_lines.append(line)
 
-                console_write(u'  ' + line)
+                console_write(u'  %s', line, prefix=False)
                 last_section = section
 
         else:
@@ -271,7 +294,7 @@ class WgetDownloader(CliDownloader, CertProvider, DecodingDownloader, LimitingDo
                 if line[0:2] == '  ':
                     header_lines.append(line.lstrip())
 
-        if error:
+        if not clean_run and error:
             raise NonHttpError(error)
 
         return self.parse_headers(header_lines)

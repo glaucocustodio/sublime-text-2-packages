@@ -7,6 +7,7 @@ from .open_compat import open_compat, read_compat
 
 
 class HttpCache(object):
+
     """
     A data store for caching HTTP response data.
     """
@@ -58,6 +59,19 @@ class HttpCache(object):
     def has(self, key):
         cache_file = os.path.join(self.base_path, key)
         return os.path.exists(cache_file)
+
+    def path(self, key):
+        """
+        Returns the filesystem path to the key
+
+        :param key:
+            The key to get the path for
+
+        :return:
+            The absolute filesystem path to the cache file
+        """
+
+        return os.path.join(self.base_path, key)
 
     def set(self, key, content):
         """
