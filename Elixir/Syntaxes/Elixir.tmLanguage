@@ -204,7 +204,7 @@
 						</dict>
 					</dict>
 					<key>end</key>
-					<string>(\bdo:)|(\bdo\b|\bwhen\b)|$</string>
+					<string>(\bdo:)|(\bdo\b)|$</string>
 					<key>endCaptures</key>
 					<dict>
 						<key>1</key>
@@ -303,7 +303,7 @@
 						</dict>
 					</dict>
 					<key>end</key>
-					<string>(\bdo:)|(\bdo\b|\bwhen\b)|$</string>
+					<string>(\bdo:)|(\bdo\b)|$</string>
 					<key>endCaptures</key>
 					<dict>
 						<key>1</key>
@@ -510,7 +510,7 @@
 				</dict>
 				<dict>
 					<key>match</key>
-					<string>(?&lt;!\.)\b(do|end|case|bc|lc|for|if|cond|unless|try|receive|fn|defmodule|defp?|defprotocol|defimpl|defrecord|defstruct|defmacrop?|defdelegate|defcallback|defmacrocallback|defexception|defoverridable|exit|after|rescue|catch|else|raise|throw|import|require|alias|use|quote|unquote|super)\b(?![?!:])</string>
+					<string>(?&lt;!\.)\b(do|end|case|bc|lc|for|if|cond|unless|try|receive|fn|defmodule|defp?|defprotocol|defimpl|defrecord|defstruct|defmacrop?|defdelegate|defcallback|defmacrocallback|defexception|defoverridable|exit|after|rescue|catch|else|raise|throw|import|require|alias|use|quote|unquote|super|with)\b(?![?!:])</string>
 					<key>name</key>
 					<string>keyword.control.elixir</string>
 				</dict>
@@ -526,7 +526,7 @@
 					<key>match</key>
 					<string>\b[A-Z]\w*\b</string>
 					<key>name</key>
-					<string>support.type.elixir</string>
+					<string>entity.name.class.elixir</string>
 				</dict>
 				<dict>
 					<key>match</key>
@@ -1214,6 +1214,20 @@
 						</dict>
 					</dict>
 					<key>match</key>
+					<string>^\s*(##).*$\n?</string>
+					<key>name</key>
+					<string>comment.line.section.elixir</string>
+				</dict>
+				<dict>
+					<key>captures</key>
+					<dict>
+						<key>1</key>
+						<dict>
+							<key>name</key>
+							<string>punctuation.definition.comment.elixir</string>
+						</dict>
+					</dict>
+					<key>match</key>
 					<string>(?:^[ \t]+)?(#).*$\n?</string>
 					<key>name</key>
 					<string>comment.line.number-sign.elixir</string>
@@ -1333,7 +1347,7 @@
 			<key>match</key>
 			<string>\\(x[\da-fA-F]{1,2}|.)</string>
 			<key>name</key>
-			<string>constant.character.escape.elixir</string>
+			<string>constant.character.escaped.elixir</string>
 		</dict>
 		<key>interpolated_elixir</key>
 		<dict>

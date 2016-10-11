@@ -2,8 +2,11 @@ import os
 import subprocess
 import re
 import codecs
+import shutil
 
 import sublime
+
+ST3 = int(sublime.version()) >= 3006
 
 try:
     from . import git_helper
@@ -14,6 +17,8 @@ except (ImportError, ValueError):
 
 
 class GitGutterHandler:
+    git_binary_path_error_shown = False
+    git_binary_path_fallback = None
 
     def __init__(self, view):
         self.load_settings()
@@ -78,20 +83,22 @@ class GitGutterHandler:
 
         contents = contents.replace(b'\r\n', b'\n')
         contents = contents.replace(b'\r', b'\n')
-        f = open(self.buf_temp_file.name, 'wb')
 
-        if self.view.encoding() == "UTF-8 with BOM":
-            f.write(codecs.BOM_UTF8)
+        with open(self.buf_temp_file, 'wb') as f:
+            if self.view.encoding() == "UTF-8 with BOM":
+                f.write(codecs.BOM_UTF8)
 
-        f.write(contents)
-        f.close()
+            f.write(contents)
+
 
     def update_git_file(self):
         # the git repo won't change that often
         # so we can easily wait 5 seconds
         # between updates for performance
         if ViewCollection.git_time(self.view) > 5:
-            open(self.git_temp_file.name, 'w').close()
+            with open(self.git_temp_file, 'w'):
+                pass
+
             args = [
                 self.git_binary_path,
                 '--git-dir=' + self.git_dir,
@@ -103,9 +110,9 @@ class GitGutterHandler:
                 contents = self.run_command(args)
                 contents = contents.replace(b'\r\n', b'\n')
                 contents = contents.replace(b'\r', b'\n')
-                f = open(self.git_temp_file.name, 'wb')
-                f.write(contents)
-                f.close()
+                with open(self.git_temp_file, 'wb') as f:
+                    f.write(contents)
+
                 ViewCollection.update_git_time(self.view)
             except Exception:
                 pass
@@ -146,7 +153,7 @@ class GitGutterHandler:
                 modified += range(start, start + new_size)
         return (inserted, modified, deleted)
 
-    def diff(self):
+    def diff_str(self):
         if self.on_disk() and self.git_path:
             self.update_git_file()
             self.update_buf_file()
@@ -154,8 +161,8 @@ class GitGutterHandler:
                 self.git_binary_path, 'diff', '-U0', '--no-color', '--no-index',
                 self.ignore_whitespace,
                 self.patience_switch,
-                self.git_temp_file.name,
-                self.buf_temp_file.name,
+                self.git_temp_file,
+                self.buf_temp_file,
             ]
             args = list(filter(None, args))  # Remove empty args
             results = self.run_command(args)
@@ -172,7 +179,86 @@ class GitGutterHandler:
                     decoded_results = codecs.decode(results)
                 except UnicodeDecodeError:
                     decoded_results = ""
-            return self.process_diff(decoded_results)
+            return decoded_results
+        else:
+            return ""
+
+    def process_diff_line_change(self, diff_str, line_nr):
+        hunk_re = '^@@ \-(\d+),?(\d*) \+(\d+),?(\d*) @@'
+        hunks = re.finditer(hunk_re, diff_str, re.MULTILINE)
+
+        # we also want to extract the position of the surrounding changes
+        first_change = prev_change = next_change = None
+
+        for hunk in hunks:
+            start = int(hunk.group(3))
+            size = int(hunk.group(4) or 1)
+            if first_change is None:
+                first_change = start
+            # special handling to also match the line below deleted
+            # content
+            if size == 0 and line_nr == start + 1:
+                pass
+            # continue if the hunk is before the line
+            elif start + size < line_nr:
+                prev_change = start
+                continue
+            # break if the hunk is after the line
+            elif line_nr < start:
+                break
+            # in the following the line is inside the hunk
+            try:
+                next_hunk = next(hunks)
+                hunk_end = next_hunk.start()
+                next_change = int(next_hunk.group(3))
+            except:
+                hunk_end = len(diff_str)
+            # extract the content of the hunk
+            hunk_content = diff_str[hunk.start():hunk_end]
+            # store all deleted lines (starting with -)
+            lines = [line[1:] for line in hunk_content.split("\n")[1:]
+                     if line.startswith("-")]
+
+            # if wrap is disable avoid wrapping
+            wrap = self.settings.get('next_prev_change_wrap', True)
+            if not wrap:
+                if prev_change is None:
+                    prev_change = start
+                if next_change is None:
+                    next_change = start
+
+            # if prev change is None set it to the wrap around the
+            # document: prev -> last hunk, next -> first hunk
+            if prev_change is None:
+                try:
+                    remaining_hunks = list(hunks)
+                    if remaining_hunks:
+                        last_hunk = remaining_hunks[-1]
+                        prev_change = int(last_hunk.group(3))
+                    elif next_change is not None:
+                        prev_change = next_change
+                    else:
+                        prev_change = start
+                except:
+                    prev_change = start
+            if next_change is None:
+                next_change = first_change
+            meta = {
+                "first_change": first_change,
+                "next_change": next_change,
+                "prev_change": prev_change
+            }
+            return lines, start, size, meta
+        return [], -1, -1, {}
+
+    def diff_line_change(self, line):
+        diff_str = self.diff_str()
+        return self.process_diff_line_change(diff_str, line)
+
+    def diff(self):
+        diff_str = self.diff_str()
+        if diff_str:
+            return self.process_diff(diff_str)
         else:
             return ([], [], [])
 
@@ -267,11 +353,39 @@ class GitGutterHandler:
             'Preferences.sublime-settings')
 
         # Git Binary Setting
-        self.git_binary_path = 'git'
-        git_binary = self.user_settings.get(
-            'git_binary') or self.settings.get('git_binary')
-        if git_binary:
-            self.git_binary_path = git_binary
+        git_binary_setting = self.user_settings.get("git_binary") or \
+                             self.settings.get("git_binary")
+        if isinstance(git_binary_setting, dict):
+            self.git_binary_path = git_binary_setting.get(sublime.platform())
+            if not self.git_binary_path:
+                self.git_binary_path = git_binary_setting.get('default')
+        else:
+            self.git_binary_path = git_binary_setting
+
+        if self.git_binary_path:
+            self.git_binary_path = os.path.expandvars(self.git_binary_path)
+        elif self.git_binary_path_fallback:
+            self.git_binary_path = self.git_binary_path_fallback
+        elif ST3:
+            self.git_binary_path = shutil.which("git")
+            GitGutterHandler.git_binary_path_fallback = self.git_binary_path
+        else:
+            git_exe = "git.exe" if sublime.platform() == "windows" else "git"
+            for folder in os.environ["PATH"].split(os.pathsep):
+                path = os.path.join(folder.strip('"'), git_exe)
+                if os.path.isfile(path) and os.access(path, os.X_OK):
+                    self.git_binary_path = path
+                    GitGutterHandler.git_binary_path_fallback = path
+                    break
+
+        if not self.git_binary_path:
+            if not GitGutterHandler.git_binary_path_error_shown:
+                GitGutterHandler.git_binary_path_error_shown = True
+                msg = ("Your Git binary cannot be found.  If it is installed, add it "
+                       "to your PATH environment variable, or add a `git_binary` setting "
+                       "in the `User/GitGutter.sublime-settings` file.")
+                sublime.error_message(msg)
+                raise ValueError("Git binary not found.")
 
         # Ignore White Space Setting
         self.ignore_whitespace = self.settings.get('ignore_whitespace')
