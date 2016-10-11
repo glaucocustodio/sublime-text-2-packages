@@ -13,3 +13,4 @@
 - <a target="_blank" href="https://sublime.wbond.net/packages/CoffeeScript">Coffee​Script</a>
 - <a target="_blank" href="https://packagecontrol.io/packages/Sass">Sass</a>
 - <a target="_blank" href="https://sublime.wbond.net/packages/SideBarEnhancements">Side​Bar​Enhancements</a>
+- <a target="_blank" href="https://packagecontrol.io/packages/TypeScript">TypeScript</a>
